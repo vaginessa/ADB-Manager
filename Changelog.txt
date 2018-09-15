@@ -1,0 +1,10 @@
+V. 1.0
+-Zmieniono: Nowa numeracja, wszak to jest wersja Redefined!
+-Zmieniono: Interfejs teraz wygl¹da lepiej, ³adniej i porz¹dniej.
+-Dodano: Mo¿liwoœæ instalacji, deinstalacji oraz podgl¹du listy zainstalowanych na urz¹dzeniu aplikacji.
+-Dodano: podstawowa obs³uga pobierania i wgrywania na urz¹dzenie pojedynczych plików, gdyby telefon by³ ju¿ tak zepsuty, ¿e nawet eksplorer by go nie rozpozna³.
+-Zmieniono: Updater teraz nie potrzebuje osobnego pliku do dzia³ania.
+-Dodano: Podstawow¹ obs³ugê selektywnych kopii zapasowych. Mo¿na teraz kopiowaæ pojedyncze partycje, jak i ca³e urz¹dzenie.
+-Dodano: Obs³ugê Sideloadingu.
+Dodano: ADB Net jest teraz obs³ugiwane.
+Dodano: Program teraz jest dostêpny na trzy platformy. Windows, Linux i OSX! W sensie, mo¿e byæ jak bêdê mia³ pieni¹dze na kompilator :). Jedyna rzecz ekskluzywna dla Windowsa to mo¿liwoœæ obs³ugi programu bez screenreadera.

@@ -6,6 +6,9 @@ EnableExplicit
 Tolk::TrySapi(#True)
 Tolk::Load()
 Tolk::Speak("ADB Manager. Wersja: "+#version+" Naciśnij ALT, aby otworzyć menu główne programu. Naciśnij F1, aby uzyskać pomoc.")
+Global *ADBOutput = AllocateMemory(65536)
+Global ADBText.s
+Global ADBID
 Global WebVersion$
 Global ActionResult.l
 Global FileName.s
@@ -16,6 +19,8 @@ Global Quit = 0
 Global UserWhereis = 0
 Global UpdateCall.l
 Global PortToUse.s
+Global IPAddr.s
+Declare InitADB()
 Declare ProgramUpdateCHK()
 Declare ADBPresenceCHK()
 Declare BackupCreate()
@@ -65,7 +70,8 @@ If OpenPreferences("adbman.ini") = 0
   
   CreatePreferences("adbman.ini")
   MessageRequester("informacja","Wygląda na to, że to Twoje pierwsze uruchomienie programu ADB Manager. Program jest otwarty i darmowy, ale jeżeli uważasz, że jest on przydatny, możesz zawsze wpłacić niewielką dotację. https://paypal.me/darknuno666. Ta wiadomość pokaże się tylko raz na tym komputerze, niezależnie od podjętej decyzji. Dziękujemy!")
-  EndIf
+EndIf
+
 OpenWindow(#Window, 100, 200, 300, 0, "ADB Manager Redefined")
 CreateMenu(#Menu, WindowID(#Window))
 MenuTitle("Program")
@@ -99,6 +105,7 @@ MenuTitle("Pomoc")
 MenuItem(#HelpReadme, "Pokaż plik Readme")
 MenuItem(#HelpChangelog, "Pokaż plik Changelog")
 MenuItem(#HelpSupport, "Skontaktuj się z autorem")
+
 Repeat
   Select WaitWindowEvent()
     Case #PB_Event_CloseWindow
@@ -119,6 +126,8 @@ Repeat
                 BackupRestore()
               Case #DeviceRemoteConfig
                 RemoteConfig()
+              Case #DeviceRemoteConnect
+                RemoteConnect()
               Case #DeviceAndroidRestart            
                 RestartHandler(0)
               Case #DeviceRecovery0
@@ -127,11 +136,15 @@ Repeat
                 RestartHandler(2)
               Case #DeviceRecovery1
                 RestartHandler(3)
+              Case #ModRecovery
+                CustomRecoveryHandler()
+              Case #ModROM
+                CustomRomHandler()
             EndSelect
             EndSelect
             Until quit = 1
             End
-                                Procedure ProgramUpdateCHK()
+            Procedure ProgramUpdateCHK()
                             Global *Buffer = ReceiveHTTPMemory("http://nuno-software.pl/projects/adbmanager/v.txt")
               If *Buffer
                 WebVersion$ = PeekS(*buffer, MemorySize(*buffer), #PB_UTF8)
@@ -153,6 +166,8 @@ Procedure ADBPresenceCHK()
       ADBDownload()
     Else
     EndIf
+  Else
+    MessageRequester("Sukces","ADB jest zainstalowany")
     EndIf
   EndProcedure
   Procedure ProgramDownload()
@@ -174,10 +189,15 @@ Procedure ADBDownload()
 EndProcedure
 Procedure RemoteConfig()
   PortToUse = InputRequester("Port","Podaj port, którego chcesz użyć do połączenia bezprzewodowego z urządzeniem","5555")
-  RunProgram("adb.exe", "tcpip "+PortToUse+"", "", #PB_Program_Read)
+  RunProgram("adb.exe","tcpip "+PortToUse+"","", #PB_Program_Read)
+  Delay (1000)
   MessageRequester("Informacja","Połączenie bezprzewodowe skonfigurowane na porcie: "+PortToUse+"")
 EndProcedure
-
+Procedure RemoteConnect()
+  IPAddr = InputRequester("Adres","Podaj adres IP swojego urządzenia.","192.168.x.x")
+  PortToUse = InputRequester("Port","Podaj port używany do połączenia","5555")
+  RunProgram("adb.exe","connect "+IPAddr+" "+PortToUse+"","",#PB_Program_Read)
+  EndProcedure
   Procedure BackupCreate()
   If UserWhereis <> 1
     ActionResult = MessageRequester("Informacja","W celu przeprowadzenia tej operacji wymagane jest przejście w tryb Recovery. Czy chcesz tego teraz dokonać? Uwaga! Zapisz wszystkie otwarte na urządzeniu pliki przed kontynuowaniem.", #PB_MessageRequester_YesNo)
@@ -185,38 +205,75 @@ EndProcedure
       RestartHandler(1)
       MessageRequester("Informacja","Urządzenie jest restartowane. Zaczekaj na wykrycie go przez system operacyjny, i spróbuj ponownie wykonać operację.")
     EndIf
+  Else
+    Adbid = RunProgram("adb.exe","backup create","", #PB_Program_Read)
   EndIf
 EndProcedure
 Procedure BackupRestore()
    FileName= OpenFileRequester("Wybierz plik z kopią zapasową ADB","","Pliki kopii zapasowych | *.zip", 0)
-  If FileName = "" : EndIf
+   If FileName = ""
+     EndIf
   If UserWhereis <>1 : MessageRequester("Informacja","Do wybranej operacji wymagane jest przejście do trybu recovery. Można To zrobić z menu 'urządzenie'")
   EndIf
-  RunProgram("adb.exe","backup restore "+FileName+"", "", #PB_Program_Read)
+  If UserWhereis = 1
+    ADBID = RunProgram("adb.exe","backup restore "+FileName+"", "", #PB_Program_Read)
+    EndIf
   EndProcedure
   Procedure RestartHandler(CommandEntered.l)
     Select CommandEntered
       Case 0
         UserWhereis = CommandEntered
-        RunProgram("adb.exe", "reboot", "", #PB_Program_Read)
+        ADBID = RunProgram("adb.exe", "reboot", "", #PB_Program_Read)
         Case 1
         UserWhereis = CommandEntered
-        RunProgram("adb.exe","reboot recovery", "", #PB_Program_Read)
+        ADBID = RunProgram("adb.exe","reboot recovery", "", #PB_Program_Read)
         Debug "Telefon jest restartowany do trybu Recovery. No sideload"
       Case 2
         UserWhereis = CommandEntered
-        RunProgram ("adb.exe","reboot fastboot","", #PB_Program_Read)
+        ADBID = RunProgram ("adb.exe","reboot fastboot","", #PB_Program_Read)
         Debug "Telefon jest restartowany do trybu fastboot."
       Case 3
         UserWhereis = CommandEntered
-        RunProgram ("adb.exe","reboot sideload","",  #PB_Program_Read)
-        Debug "Telefon jest restartowany do trybu recovery (sideload)"
+        ADBID = RunProgram ("adb.exe","reboot sideload","",  #PB_Program_Read)
+        Debug ReadProgramString(adbid, #PB_UTF8)
       Default
         Debug "Nieznana wartość podana jako argument funkcji."
     EndSelect
   EndProcedure
+  Procedure CustomRecoveryHandler()
+    FileName= OpenFileRequester("Wybierz plik z Custom Recovery","","Pliki Custom Recovery| *.img", 0)
+    If FileName <> ""
+    If UserWhereis <>2
+      ActionResult = MessageRequester("Pytanie","Do wykonania tej operacji wymagane jest przejście do trybu Fastboot. Czy chcesz dokonać restartu teraz? Uwaga! Odłączenie telefonu w tej chwili może skończyć się kompletnym jego uszkodzeniem.", #PB_MessageRequester_YesNo)
+      If ActionResult = #PB_MessageRequester_Yes
+        RestartHandler(2)
+      ElseIf #PB_MessageRequester_No
+      EndIf
+      EndIf
+        If USerWhereis = 2
+        ADBId = RunProgram("fastboot.exe","flash recovery "+FileName+"","", #PB_Program_Read) : EndIf
+        EndIf
+      EndProcedure
+      Procedure CustomRomHandler()
+        If UserWhereis<>3
+          MessageRequester("Pytanie","Wymagane jest przejście w tryb Recovery 'sideload' w celu kontynuacji. Czy chcesz przejść do niego teraz?", #PB_MessageRequester_YesNo)
+          If #PB_MessageRequester_Yes
+            RestartHandler(3)
+          Else
+          EndIf
+          If UserWhereis = 3
+            Filename = OpenFileRequester("Wybierz plik zawierający Custom ROM","","Pliki Custom ROM | *.zip", 0)
+            If Filename <> "" And UserWhereis= 3
+              ADBId = RunProgram("adb.exe","sideload "+FileName+"", "", #PB_Program_Read)
+            EndIf
+            If FileName = ""
+            EndIf
+          EndIf
+        EndIf
+        EndProcedure
 ; IDE Options = PureBasic 5.62 (Windows - x64)
-; CursorPosition = 88
-; FirstLine = 60
+; CursorPosition = 237
+; FirstLine = 233
 ; Folding = --
 ; EnableXP
+; Executable = ADBManager.exe
